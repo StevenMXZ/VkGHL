@@ -1,0 +1,48 @@
+name: Build VkGHL Vulkan Layer
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-vkghl:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: pchome/VkGHL
+
+      - name: Install Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            cmake build-essential \
+            gcc-aarch64-linux-gnu g++-aarch64-linux-gnu \
+            libvulkan-dev vulkan-headers
+
+      - name: Build for ARM64
+        run: |
+          mkdir -p build
+          cd build
+          
+          # Configura o CMake para compilar para o celular (Cross-Compile)
+          cmake .. \
+            -DCMAKE_SYSTEM_NAME=Linux \
+            -DCMAKE_SYSTEM_PROCESSOR=aarch64 \
+            -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc \
+            -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++ \
+            -DCMAKE_BUILD_TYPE=Release
+          
+          make
+
+      - name: Prepare Artifacts
+        run: |
+          mkdir -p output/
+          # Copia a biblioteca compilada
+          cp build/libVkLayer_VkGHL.so output/
+          # Copia o arquivo JSON necessário para o Vulkan reconhecer a layer
+          cp VkLayer_VkGHL.json output/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: vkghl-arm64
+          path: output/
