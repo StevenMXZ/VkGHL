@@ -14,17 +14,18 @@ jobs:
       - name: Install Dependencies
         run: |
           sudo apt-get update
+          # Removido 'vulkan-headers' pois libvulkan-dev já faz o trabalho
           sudo apt-get install -y \
             cmake build-essential \
             gcc-aarch64-linux-gnu g++-aarch64-linux-gnu \
-            libvulkan-dev vulkan-headers
+            libvulkan-dev
 
       - name: Build for ARM64
         run: |
           mkdir -p build
           cd build
           
-          # Configura o CMake para compilar para o celular (Cross-Compile)
+          # Configura o CMake para compilar para ARM64
           cmake .. \
             -DCMAKE_SYSTEM_NAME=Linux \
             -DCMAKE_SYSTEM_PROCESSOR=aarch64 \
@@ -37,9 +38,10 @@ jobs:
       - name: Prepare Artifacts
         run: |
           mkdir -p output/
-          # Copia a biblioteca compilada
-          cp build/libVkLayer_VkGHL.so output/
-          # Copia o arquivo JSON necessário para o Vulkan reconhecer a layer
+          # No VkGHL, o nome da lib gerada pode variar, usamos curinga *.so para garantir
+          cp build/*.so output/libVkLayer_VkGHL.so
+          
+          # O arquivo JSON original precisa ser copiado também
           cp VkLayer_VkGHL.json output/
 
       - uses: actions/upload-artifact@v4
