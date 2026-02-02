@@ -1,4 +1,4 @@
-name: Build VkGHL (VulkanTools Method)
+name: Build VkGHL (Fix Headers)
 
 on:
   workflow_dispatch:
@@ -7,7 +7,7 @@ jobs:
   build-vkghl:
     runs-on: ubuntu-22.04
     steps:
-      - name: Install Dependencies
+      - name: Install System Dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y \
@@ -15,28 +15,41 @@ jobs:
             gcc-aarch64-linux-gnu g++-aarch64-linux-gnu \
             libvulkan-dev
 
+      - name: Build Vulkan Headers (Fix Error 1.4.341)
+        run: |
+          # 1. Baixa os Headers oficiais mais recentes
+          git clone https://github.com/KhronosGroup/Vulkan-Headers.git
+          cd Vulkan-Headers
+          
+          # 2. Prepara a instalação local (para o CMake encontrar)
+          mkdir build
+          cd build
+          cmake .. -DCMAKE_INSTALL_PREFIX=/tmp/vk_headers
+          make install
+
       - name: Prepare VulkanTools & VkGHL
         run: |
-          # 1. Clona a "casa" (VulkanTools)
+          # Clona o VulkanTools (A "Casa")
           git clone https://github.com/LunarG/VulkanTools
           cd VulkanTools
           
-          # 2. Limpa os exemplos que não precisamos (como manda a print)
+          # Limpa pastas desnecessárias
           rm -rf layer_factory/assistant_layer
           rm -rf layer_factory/demo_layer
           rm -rf layer_factory/starter_layer
           
-          # 3. Baixa o VkGHL para dentro da pasta layer_factory
+          # Clona o VkGHL (O "Hóspede")
           git clone https://github.com/pchome/VkGHL layer_factory/VkGHL
 
-      - name: Build for ARM64
+      - name: Build VkGHL for ARM64
         run: |
           cd VulkanTools
           mkdir build_arm64
           cd build_arm64
           
-          # Configuração do CMake com as flags da sua print + Cross-Compile
+          # AQUI ESTÁ O TRUQUE: Adicionamos -DCMAKE_PREFIX_PATH apontando para os headers que compilamos acima
           cmake .. \
+            -DCMAKE_PREFIX_PATH=/tmp/vk_headers \
             -DCMAKE_SYSTEM_NAME=Linux \
             -DCMAKE_SYSTEM_PROCESSOR=aarch64 \
             -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc \
@@ -50,20 +63,19 @@ jobs:
             -DBUILD_VKTRACE_REPLAY=OFF \
             -DVkLayer_VkGHL_INSTALL_DIR=/usr/lib
           
-          # Compila
           make
 
       - name: Locate and Prepare Artifacts
         run: |
           mkdir -p output
           
-          # Procura onde o VkGHL foi gerado (geralmente fica em layers/)
+          # Procura e copia a biblioteca gerada
           find VulkanTools/build_arm64 -name "libVkLayer_VkGHL.so" -exec cp {} output/ \;
           
-          # Copia o JSON original do repositório do VkGHL
+          # Copia o JSON
           cp VulkanTools/layer_factory/VkGHL/VkLayer_VkGHL.json output/
 
       - uses: actions/upload-artifact@v4
         with:
-          name: vkghl-arm64-final
+          name: vkghl-arm64-fixed
           path: output/
